@@ -1,0 +1,13 @@
+a.external::after {
+  /* Source: Wikimedia Commons, https://commons.wikimedia.org/wiki/File:Link-external-small-ltr-progressive.svg (CC BY 4.0) */
+  content: url(https://upload.wikimedia.org/wikipedia/commons/9/96/Link-external-small-ltr-progressive.svg);
+  margin: 0px 0px 0px 5px;
+}
+
+.italic, .descr {
+  font-style: italic;
+}
+
+.center {
+  text-align: center;
+}
