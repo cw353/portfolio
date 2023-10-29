@@ -1,0 +1,404 @@
+---
+title: "MATH 463 Project"
+subtitle: "What Factors Impact How Long Animals Stay in Shelters?"
+author: "Catie Lamberson, Lola Sneddon, Claire Wagner"
+date: "2023-05-02"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
+knitr::opts_chunk$set(fig.height=3.7)
+library(knitr)
+library(broom)
+library(mosaic)
+library(tidyverse)
+library(patchwork)
+library(kableExtra)
+
+output_format <- "latex" # set to "latex" or "html" according to desired output format
+
+shelter_original <- read.csv("cleaned_dataset.csv")
+shelter <- shelter_original %>% mutate(log_time_in_shelter_days = log(time_in_shelter_days))
+shelter_unfactored <- shelter # save a copy without conversion to factors
+
+# all features except time_in_shelter_days are categorical
+for (colname in colnames(shelter)) {
+  if (colname != 'time_in_shelter_days' & colname != 'log_time_in_shelter_days') {
+    shelter[, colname] = as.factor(shelter[, colname])
+  }
+}
+
+custom_plot_theme = theme(
+  plot.title = element_text(size = 10, hjust = 0.5),
+  axis.title = element_text(size = 8.5),
+)
+
+
+```
+
+## Abstract
+This paper seeks to explore the factors that influence the amount of time spent by animals in shelters. Using data from the Austin Animal Center, we trained a multiple regression model to predict the duration of a given animal's stay at the shelter based on information known before that animal's release. While we found that a linear model was not suitable, we were still able to draw key conclusions about predictors, two of which we then verified by hypothesis testing. Notable predictors for length of stay include type of animal and age group of animal, with dogs spending less time in the shelter than cats and animals older than 12.5 years spending less time in the shelter than younger animals.
+
+## Introduction
+
+Approximately 6.3 million animals enter shelters each year in the United States. Only about 4.1 million of these are adopted each year.^[https://www.aspca.org/helping-people-pets/shelter-intake-and-surrender/pet-statistics] This places a significant burden on animal shelters, which must utilize limited resources to house animals for varying periods of time while attempting to ensure the best possible outcome for each animal upon release.
+
+We have chosen to investigate data concerning animals taken in by a shelter with the goal of identifying factors that affect the length of an animal's stay in a shelter. By evaluating various predictor variables and their respective impacts on length of stay, we can gain insights into what should be done to facilitate shelters' decisions about how to best care for each animal, from fostering or adoption to longer-term housing at the shelter.
+
+The data used for our analysis was sourced from the Kaggle dataset "Austin Animal Center Shelter Intakes and Outcomes."^[https://www.kaggle.com/datasets/aaronschlegel/austin-animal-center-shelter-intakes-and-outcomes] This dataset was compiled by Aaron Schlegel using data published by the Austin Animal Center (AAC), the largest animal shelter in the United States with a no-kill policy, which houses more than 18000 animals per year.^[https://www.austintexas.gov/department/austin-animal-center-0] The AAC collects data on each animal that comes through the shelter at the time of intake as well as at the time of outcome (release from the shelter).
+
+## Exploratory Data Analysis
+
+The original AAC dataset contained 41 features and 79672 observations. To clean the AAC dataset and make it more suitable for our analysis, we applied the following modifications and feature engineering:
+
+\newpage
+
+* We removed 6938 observations with missing or unknown values.  
+    + 6785 of these removed observations had missing or unknown values for `sex_upon_intake`, `sex_upon_outcome`, or both.  
+    + 147 of these observations had missing or unknown values for `intake_condition`.  
+    + 10 of these removed observations had missing or unknown values for `outcome_type`.  
+* For each animal that was taken into the shelter on more than one occasion, we kept only the observation corresponding to the first intake and outcome for that animal (resulting in the removal of 7668 additional observations).  
+* We removed features that had too many unique values (such as `breed`) or were redundant (such as `animal_id_outcome`).  
+* We removed features in datetime format regarding animals' birth dates and ages because these must often be estimated and are unlikely to be precise. We retained the categorical feature `age_upon_intake_age_group` since lack of precision for this attribute is less problematic, but we collapsed all age groups with ages greater than 15 into the new category `(15.0, 25.0]`.  
+* We created a new ternary feature, `black_coloring`, recording whether each animal was partially, fully, or not at all black in coloring, using the preexisting feature `color`. We removed 2484 observations for which our parsing algorithm was unable to determine whether the animal was black-colored or not.  
+* We replaced the preexisting features `sex_upon_intake` and `sex_upon_outcome` with four new binary features — `sex`, `neutered_or_spayed_upon_intake`, `neutered_or_spayed_upon_outcome`, and `neutered_or_spayed_during_time_at_shelter` — to divide the information encoded in the original features into separate, more easily analyzable attributes. We removed 3 observations with inconsistent neutered/spayed status (where an animal was recorded as spayed or neutered on intake but intact on outcome).  
+
+The cleaned dataset, which spans the years 2013 to 2018, contains 20 features and 62579 observations (each of which corresponds to a unique animal). There are no missing values. See Appendix A for descriptions of the features in the dataset.
+
+As we can see by examining the histograms below, `time_in_shelter_days` is skewed to the right with some significant outliers. We can reduce the impact of these outliers by taking the log of `time_in_shelter_days`. As the table of summary statistics shows, this log transformation moves the mean and median closer together and reduces both the standard deviation and maximum value.
+
+```{r}
+fav_time <- favstats(shelter$time_in_shelter_days)
+fav_log_time <- favstats(shelter$log_time_in_shelter_days)
+fav_both <- rbind(fav_time, fav_log_time)
+row.names(fav_both) <- c("time_in_shelter_days", "log_time_in_shelter_days")
+fav_both %>% kable(format = output_format,  booktabs = TRUE, linesep = "", caption="Summary Statistics for Time in Shelter and Its Log") %>% kable_styling(latex_options = c("scale_down", "HOLD_position"))
+```
+
+```{r}
+non_log_plt <- ggplot(data=shelter, aes(x = time_in_shelter_days)) +
+  geom_histogram(bins=75, fill="steelblue") +
+  labs(x = "Time in Shelter (Days)", y = "Count", title = "Distribution of Time in Shelter") +
+  custom_plot_theme
+
+log_plt <- ggplot(data=shelter, aes(x = log_time_in_shelter_days)) +
+  geom_histogram(bins=20, fill="steelblue") +
+  labs(x = "Log of Time in Shelter (Days)", y = "Count", title = "Distribution of Log of Time in Shelter") +
+  custom_plot_theme
+
+non_log_plt + log_plt
+```
+
+Even using the log of `time_in_shelter_days`, there are significant outliers in the amount of time that various types of animals spend in the shelter, as shown by the box plot below. The median log of time in shelter differs from group to group, suggesting, for example, that the median log of time in shelter may be larger for cats than for dogs. However, further investigation is needed to tell if these differences are significant because of the variability in each group.
+
+```{r}
+ggplot(data = shelter_unfactored , aes(x = animal_type, y = log_time_in_shelter_days)) +
+    geom_boxplot(fill = "thistle") +
+    labs(x="Animal Type", y = "Log of Time in Shelter (Days)", title = "Log of Time in Shelter by Animal Type") +
+    custom_plot_theme
+```
+
+Similarly, the next box plot shows that most age groups have both a considerable degree of variability and a considerable number of outliers in the log of time in shelter. The exceptions to this rule are the two age groups with animals older than 12.5, which lack the outliers seen in the other groups. The median log of time in shelter appears to be smaller for these two older age groups than for the younger age groups, but further investigation is needed to determine if this difference is significant.
+
+```{r}
+ggplot(data = shelter_unfactored , aes(x = age_upon_intake_age_group, y = log_time_in_shelter_days)) +
+    geom_boxplot(fill = "thistle") +
+    labs(x="Age Group Upon Intake", y = "Log of Time in Shelter (Days)", title = "Log of Time in Shelter by Age Group") +
+    custom_plot_theme
+```
+
+## Statistical Analysis
+
+To analyze our data, we will train multiple regression models and perform hypothesis tests on relevant predictors.
+
+### Multiple Regression
+
+With the goal of helping shelter staff identify which animals are most likely to spend the longest amount of time in the shelter, we trained a multiple regression model, Model 1, to predict the duration of an animal's stay. To reduce the impact of the outliers in `time_in_shelter_days` on our model, we used the log of `time_in_shelter_days` as the target feature.
+
+The predictor variables for Model 1 consist of all attributes in the dataset (with the exception of the unique identifier `animal_id`) that would be known to shelter staff after a given animal's intake into the shelter but before its release. This means that we did not include outcome-related features such as `outcome_type` or `outcome_year` as predictor variables, since the values of these features are only known after an animal's release from the shelter.
+
+In total, Model 1 uses twelve predictor variables: `animal_type`, `black_coloring`, `intake_condition`, `intake_type`, `sex`, `neutered_or_spayed_upon_intake`, `neutered_or_spayed_during_time_at_shelter`, `intake_month`, `intake_year`, `intake_weekday`, `intake_hour`, and `age_upon_intake_age_group`.
+
+Model 1 has an R^2^ value of about 0.2655, suggesting that it explains about 26.55% of variation in the log of `time_in_shelter_days`. A summary of the model is given in the table below; see Appendix B for a summary of the coefficients of the model.
+
+```{r}
+model1 <- lm(log_time_in_shelter_days ~ animal_type + black_coloring + intake_condition + intake_type + sex + neutered_or_spayed_upon_intake + neutered_or_spayed_during_time_at_shelter + intake_month + intake_year + intake_weekday + intake_hour + age_upon_intake_age_group, data=shelter)
+
+model1 %>% glance() %>%
+  kable(format = output_format,  booktabs = TRUE, linesep = "", caption="Summary of Model 1") %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+```
+
+For comparison, we then created a slightly simpler multiple regression model, Model 2, which also uses the log of `time_in_shelter_days` as the target feature. This second model includes most of the same predictors as Model 1, but it omits predictors for which the p-values for all categorical levels were greater than 0.05. Notably, only the feature `intake_hour` met this criterion for removal. A summary of Model 2 is given in the table below; see Appendix C for a summary of the coefficients of the model.
+
+```{r}
+model2 <- lm(log_time_in_shelter_days ~ animal_type + black_coloring + intake_condition + intake_type + sex + neutered_or_spayed_upon_intake + neutered_or_spayed_during_time_at_shelter + intake_month + intake_year + intake_weekday + age_upon_intake_age_group, data=shelter)
+
+model2 %>% glance() %>%
+  kable(format = output_format,  booktabs = TRUE, linesep = "", caption="Summary of Model 2") %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+```
+
+To verify the assumptions behind Model 1 and Model 2, we can examine a histogram of the residuals for each model, overlaid with a normal distribution curve (in blue). As shown in the plot below, we see that the residuals appear to be generally normally distributed for both Model 1 and Model 2. This suggests that the random error in both models follows a normal distribution, satisfying the nearly normal residuals condition.
+
+```{r}
+m1_plot <- ggplot(data = model1, aes(x = .resid)) +
+  geom_histogram(aes(y = ..density..), bins=30) +
+  stat_function(fun = dnorm,
+                args = list(mean = mean(model1$residuals),
+                            sd = sd(model1$residuals)),
+                col = "blue",
+                size = 1.5) +
+  labs(x = "Residuals", y = "Density", title = "Histogram of Residuals for Model 1") +
+  custom_plot_theme
+
+m2_plot <- ggplot(data = model2, aes(x = .resid)) +
+  geom_histogram(aes(y = ..density..), bins=30) +
+  stat_function(fun = dnorm,
+                args = list(mean = mean(model2$residuals),
+                            sd = sd(model2$residuals)),
+                col = "blue",
+                size = 1.5) +
+  labs(x = "Residuals", y = "Density", title = "Histogram of Residuals for Model 2") +
+  custom_plot_theme
+
+m1_plot + m2_plot
+```
+
+However, if we look at a scatter plot of residuals vs. fitted values for each model, we see a clear pattern with an uneven spread. This suggests that variability in the residuals is not constant and the relationship between `time_in_shelter_days` and the predictor variables is not linear for either model, violating both the constant variability and the linearity conditions. As a result, we conclude that Model 1 and Model 2 are not appropriate linear models.
+
+```{r}
+
+m1_plot <- ggplot(data = model1) +
+  geom_point(aes(y = .resid, x = .fitted), color = "red") +
+  labs(x = "Fitted Values", y = "Residuals", title = "Scatter Plot of Residuals for Model 1") +
+  custom_plot_theme
+
+m2_plot <- ggplot(data = model2) +
+  geom_point(aes(y = .resid, x = .fitted), color = "red") +
+  labs(x = "Fitted Values", y = "Residuals", title = "Scatter Plot of Residuals for Model 2") +
+  custom_plot_theme
+
+m1_plot + m2_plot
+```
+
+However, we would still like to ascertain if either model achieves better performance than the other. Using ANOVA, we determined that there is a statistically significant difference (p-value < 1×10^-8^) between the performance of Model 1 and the performance of Model 2, despite the fact that Model 2 omits only a single predictor variable from Model 1. The ANOVA test can detect this statistically significant difference because the large sample size lends it high power to detect differences. It should be noted that we have not fully satisfied the condition for ANOVA that requires both models to be valid linear models. As a result, we should interpret the results of this test with some caution. The results of the ANOVA are given in the table below. 
+
+```{r}
+anova(model2, model1) %>% tidy() %>%
+  kable(format = output_format, booktabs = TRUE, linesep = "", caption="ANOVA between Model 2 and Model 1") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+Since Model 1 has an adjusted R^2^ value of 0.2647, compared to Model 2's adjusted R^2^ value of 0.2636, we conclude that Model 1 is a better model than Model 2 (at least statistically, even if not practically).
+
+In light of the violated constant variability and linearity conditions for Model 1, as well as the model's relatively low R^2^ value, we conclude that a linear model is unsuitable for predicting the duration of an animal's stay in the shelter. Nevertheless, an analysis of the coefficients of Model 1 allows us to make a few general but helpful observations about the significance of the predictor variables. As we do so, we must keep in mind that interpretations must be made with caution because the linearity of the model is in question. (Note that all interpretations of coefficients are made while holding the other variables constant.)
+
+* On average, dogs spend less time at the shelter than other types of animals (p-value < 1×10^-8^).  
+* On average, animals that are not black-colored spend less time at the shelter than partially or fully black-colored animals (p-value = 0.0000920).  
+* On average, pregnant animals spend more time at the shelter than non-pregnant animals (p-value = 0.0045030), while sick animals spend less time than healthy animals (p-value = 0.0000038).  
+* On average, animals that are surrendered by their owners, are brought in by public assist, or are strays spend more time at the shelter than wildlife or animals brought in for euthanasia (p-value < 1×10^-8^ for all categories).  
+* On average, male animals spend less time at the shelter than female animals (p-value = 0.0000046).  
+* On average, animals that are neutered/spayed upon intake into the shelter or during their time at the shelter spend more time at the shelter than animals that are not (p-values < 1×10^-8^).  
+* On average, animals taken in by the shelter between May and November spend more time at the shelter (p-values range from < 1×10^-8^ to 0.0030472).  
+* On average, animals between the ages of 12.5 and 25.5 spend less time at the shelter than younger animals (p-values < 1×10^-8^).  
+
+### Hypothesis Testing
+
+To verify our observations from the multiple regression model, we will conduct hypothesis tests for differences of means with regards to animal type and age group. We will use the original `time_in_shelter_days` attribute instead of its log in our hypothesis tests for the sake of interpretability.
+
+#### Difference Between Types
+
+Firstly, we will test whether there is a significant difference between the mean lengths of stay in shelter for cats and dogs. Our goal is to confirm or refute our observation based on Model 1 that dogs spend less time in the shelter on average. Our null hypothesis is that there is no such difference, while our alternative hypothesis is that there is such a difference. We will begin by testing the assumptions for applying a t-test for difference in means.
+
+```{r}
+both_data <- filter(shelter_unfactored, animal_type=='Dog' | animal_type=='Cat')
+dog_data <- filter(shelter_unfactored, animal_type=='Dog')
+cat_data <- filter(shelter_unfactored, animal_type=='Cat')
+
+dog_time <- dog_data$time_in_shelter_days
+cat_time <- cat_data$time_in_shelter_days
+
+both_data %>%
+    group_by(animal_type) %>%
+    summarise_at(vars(time_in_shelter_days), list("Count"=length, "Variance of Time in Shelter in Days"=var)) %>%
+    rename(Group=animal_type) %>%
+  kable(format = output_format,  booktabs = TRUE, linesep = "", caption="Sample Statistics for Cats vs. Dogs") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+The sample variations of time in shelter for cats and dogs are not equal (although their ratio, at about 1.13, is less than 3), so we will apply Welch's Two Sample t-test. The number of cats and the number of dogs are both much greater than 30. Therefore, our assumptions for applying the t-test hold.
+
+The results of the t-test are given in the table below. We have evidence (p-value < 1×10^-8^) to reject the null hypothesis in favor of the alternative hypothesis that there is a statistically significant difference in the mean time in shelter in days between cats and dogs. We have 95% confidence that the true difference is in the interval (5.785792, 7.166121). Since all values in this interval are positive, we conclude that, on average, cats spend more time in the shelter than dogs.
+
+```{r}
+t.test(cat_time, dog_time) %>%
+  tidy() %>%
+  rename(mean_diff = estimate, mean_cats = estimate1, mean_dogs = estimate2, t=statistic, df=parameter) %>%
+  kable(format = output_format, booktabs = TRUE, linesep = "", caption="T-Test for Mean Time in Shelter (in Days) for Cats vs. Dogs") %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+```
+
+#### Difference Between Ages
+
+Secondly, we will test whether there is a significant difference between lengths of stay in shelter for different age groups. Our goal is to confirm or refute our observation based on Model 1 that animals older than 12.5 years spend less time in the shelter on average than younger animals.
+
+We cannot use ANOVA because the time in shelter for a given age group is not necessarily normally distributed. For example, as shown in the histogram below, the time in shelter spent by the `(2.5, 5.0]` age group is not normally distributed.
+
+```{r}
+sample_age_group <- shelter %>% filter(age_upon_intake_age_group == "(2.5, 5.0]")
+ggplot(data = sample_age_group, aes(x = time_in_shelter_days)) +
+  geom_histogram(bins = 75, color = "white", fill = "steelblue") +
+  labs(x = "Time in Shelter (Days)", y = "Count", title = "Histogram of Time in Shelter for Age Group (2.5, 5.0]") +
+  custom_plot_theme
+```
+
+Instead, we will use the non-parametric Kruskal-Wallis rank sum test. Our null hypothesis is that there is no difference in median time in shelter between age groups, while our alternative hypothesis is that there is such a difference. The only assumption we need to satisfy for this test is that all sample sizes are large enough. Since all of our sample sizes are much larger than 5, as shown in the table below, this assumption is satisfied.
+
+```{r}
+shelter %>%
+    group_by(age_upon_intake_age_group) %>%
+    summarise_at(vars(time_in_shelter_days), list("Count"=length)) %>%
+    rename("Age Group"=age_upon_intake_age_group) %>%
+    kable(format = output_format, booktabs = TRUE, linesep = "", caption="Counts of Age Groups") %>%
+    kable_styling(latex_options = "HOLD_position")
+```
+
+The results of the Kruskal-Wallis rank sum test are shown in the table below. We have evidence (p-value < 1×10^-8^) to reject the null hypothesis in favor of the alternative hypothesis that there is a statistically significant difference in median time in shelter between age groups.
+
+```{r}
+kruskal.test(time_in_shelter_days ~ age_upon_intake_age_group, data=shelter) %>% tidy() %>%
+  rename("df"=parameter, "p-value"=p.value) %>%
+  kable(format = output_format, booktabs = TRUE, linesep = "", caption="Kruskal-Wallis Test for Median Time in Shelter (in Days) by Age Group") %>%
+  kable_styling(latex_options = c("HOLD_position"))
+```
+
+Since our sample sizes are large enough, we can determine which age groups have statistically significant differences in median duration of stay in shelter by using the non-parametric pairwise Wilcoxon rank sum test, adjusting p-values with the conservative Bonferroni method. The results of this test are shown in the table below.
+
+```{r}
+pairwise.wilcox.test(shelter$time_in_shelter_days, shelter$age_upon_intake_age_group, paired=FALSE, p.adjust.method="bonferroni") %>%
+  tidy() %>%
+  rename("Age Group 1"=group1, "Age Group 2"=group2, "P-Value"=p.value) %>%
+  kable(format = output_format, booktabs = TRUE, linesep = "", caption="Pairwise Wilcoxon Test for Median Time in Shelter (in Days) by Age Group") %>%
+  kable_styling(latex_options = c("HOLD_position"))
+```
+
+Based on these p-values, we can make the following observations:
+
+* The median time in shelter spent by age group `(-0.025, 2.5]` is statistically significantly different from the median times spent by all other age groups (p-values range from 0.0000010 to < 1×10^-6^).  
+* The median times in shelter spent by age groups `(2.5, 5.0]` and `(5.0, 7.5]` are statistically significantly different from the median times spent by all other age groups except each other (p-values range from 0.0024003 to < 1×10^-8^).  
+* The median times in shelter spent by age groups `(7.5, 10.0]` and `(10.0, 12.5]` are statistically significantly different from the median times spent by all other age groups except each other (p-values range from 0.0024003 to < 1×10^-8^).  
+* The median times in shelter spent by age groups `(12.5, 15.0]` and `(15.0, 25.0]` are statistically significantly different from the median times spent by all other age groups except each other (all p-values < 1×10^-8^).
+
+Now that we have confirmed that there are indeed differences in median time in shelter between age groups, we will investigate whether there is a difference in mean time in shelter between animals who are older than 12.5 years and animals who are 12.5 years old or younger. Our null hypothesis is that there is no such difference, while our alternative hypothesis is that there is such a difference. We will begin by testing the assumptions for applying a t-test for difference in means.
+
+```{r}
+young_or_old_from_age_group <- function(age_group) {
+  ifelse((age_group == "(12.5, 15.0]" | age_group == "(15.0, 25.0]"), yes="Older than 12.5", no="12.5 or Younger")
+}
+
+shelter_young_or_old <- shelter %>% mutate(young_or_old = young_or_old_from_age_group(age_upon_intake_age_group))
+
+young_data <- shelter_young_or_old %>% filter(young_or_old=="12.5 or Younger")
+old_data <- shelter_young_or_old %>% filter(young_or_old=="Older than 12.5")
+
+young_time <- young_data$time_in_shelter_days
+old_time <- old_data$time_in_shelter_days
+
+shelter_young_or_old %>%
+    group_by(young_or_old) %>%
+    summarise_at(vars(time_in_shelter_days), list("Count"=length, "Variance of Time in Shelter in Days"=var)) %>%
+  rename(Group=young_or_old) %>%
+  kable(format = output_format,  booktabs = TRUE, linesep = "", caption="Sample Statistics for Animals Older than 12.5 vs. Animals 12.5 or Younger") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+The sample variations of time in shelter for animals older than 12.5 and younger animals are not equal (although their ratio, at about 1.43, is less than 3), so we will apply Welch's Two Sample t-test. The number of animals older than 12.5 and the number of younger animals are both much greater than 30. Therefore, our assumptions for applying the t-test hold.
+
+The results of the t-test are given in the table below. We have evidence (p-value < 1×10^-8^) to reject the null hypothesis in favor of the alternative hypothesis that there is a statistically significant difference in the mean time in shelter in days between animals older than 12.5 years and animals 12.5 years old or younger. We have 95% confidence that the true difference is in the interval (-9.590813, -4.88845). Since all values in this interval are negative, we conclude that, on average, animals older than 12.5 years spend less time in the shelter than younger animals.
+
+```{r}
+t.test(old_time, young_time) %>%
+  tidy() %>%
+  rename(mean_diff = estimate, mean_older = estimate1, mean_younger = estimate2, t=statistic, df=parameter) %>%
+  kable(format = output_format, booktabs = TRUE, linesep = "", caption="T-Test for Mean Lengths of Stay for Animals Older than 12.5 vs. Animals 12.5 or Younger") %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+```
+
+#### Summary of Hypothesis Test Results
+Our hypothesis test regarding cats vs. dogs found that cats spend more time in the shelter on average than dogs. This supports our observation from Model 1 that dogs spend less time in the shelter on average.
+
+Our hypothesis tests regarding age groups found that there are statistically significant differences in median stay in shelter between various age groups. Additionally, we found that animals older than 12.5 spend less time in the shelter on average than animals who are 12.5 or younger. The latter result supports our observation from Model 1 that animals between the ages of 12.5 and 25.5 spend less time in the shelter on average.
+
+## Conclusion
+
+We undertook our analysis of the Austin Animal Center dataset with the goal of identifying predictors that shorten or prolong an animal's stay at the shelter (the outcome variable `time_in_shelter_days`). We used the log of the outcome variable in our regression models to reduce the impact of outliers, but we used the original attribute in our hypothesis tests for the sake of interpretability.
+
+To predict the duration of an animal's stay in the shelter, we created an initial multiple regression model, Model 1. As predictors, we used all attributes that would likely be known to shelter staff before that animal's release from the shelter. Model 1 achieved an R^2^ value of 0.2655, suggesting that it explains only 26.55% of the variability in the number of days spent in the shelter. Using an ANOVA test (p-value < 1×10^-8^) and comparison of adjusted R^2^ values, we concluded that Model 1 achieved statistically significantly better performance than a simplified model, Model 2, that omitted the least significant predictor variable in Model 1.
+
+Since some of the assumptions behind Model 1 were violated, we determined that a linear model was ultimately unsuitable for predicting the length of an animal's stay in the shelter. Nevertheless, analyzing the coefficients of Model 1 allowed us to make some key observations about the apparent impacts of various predictors on the target feature. In particular, we noted that the average amount of time spent in the shelter appeared to vary depending on an animal's type and age group upon intake.
+
+To verify these two observations, we conducted hypothesis tests to detect differences in means and medians. We concluded that, on average, dogs spend less time in the shelter than cats and animals older than 12.5 years old spend less time in the shelter than younger animals (both p-values < 1×10^-8^).
+
+Based on these findings, shelters such as the AAC may wish to reexamine their policies to better care for animals that may have to stay in the shelter for a longer amount of time and to expedite the process of finding these animals a more permanent home. For example, knowing that cats currently spend a longer amount of time in the shelter than dogs on average, the AAC could take steps to reduce the disparity by improving the process of fostering and adoption for cats.
+
+It is worthwhile to note that our findings do not necessarily provide a clear idea of how practically significant the differences in mean and median length of stay at the shelter are (especially since using the log of the amount of time spent in the shelter as the outcome variable for our models reduced the interpretability of the model results). Furthermore, because we limited our analysis to data from a single animal shelter, our conclusions are not necessarily applicable to other shelters. Future research could improve the generalizability of our findings by comparing the Austin Animal Center dataset to data from other shelters.
+
+Additionally, our multiple regression model highlighted multiple predictor variables as significant for predicting duration of stay in shelter. However, we limited our in-depth analysis with hypothesis testing and confidence intervals to only two of these predictors (animal type and age group on intake). A closer examination of the other variables suggested to be significant by our model (such as animals' sex, health status, and time of intake) might yield additional insights into how shelters can improve the efficiency and efficacy of their care for different categories of animals.
+
+\newpage
+
+## Appendix A: Explanation of Features in Dataset
+
+The features in the cleaned dataset that we used are described in the table below.^[The descriptions are based on our interpretations of the feature names, since no descriptions were provided by the data source.]
+
+```{r}
+# display table with names and descriptions of attributes
+names <- names(shelter_original)
+desc <- c("unique identifier", "type of animal", "whether animal has full, partial, or no black coloring", "number of days spent by animal in shelter", "condition of animal upon intake into shelter", "type of intake into shelter", "type of outcome for animal", "sex of animal", "whether animal was neutered/spayed upon intake into shelter", "whether animal was neutered/spayed upon outcome", "whether animal was neutered/spayed during its stay in the shelter", "month when intake into shelter occurred", "year when intake into shelter occurred", "weekday when intake into shelter occurred", "hour when intake into shelter occurred", "month when outcome occurred", "year when outcome occurred", "weekday when outcome occurred", "hour when outcome occurred", "age group of animal upon intake into shelter")
+types <- c()
+for (col in shelter_original) { types <- append(types, class(col)) }
+tibble('Feature'=names, 'Type'=types, 'Description'=desc) %>%
+  kable(format = output_format,  booktabs = TRUE, linesep = "", caption="Dataset Features, Types, and Descriptions") %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+```
+
+All features in the dataset except for `time_in_shelter_days` are categorical. The levels of these variables are given in the table below.
+
+```{r}
+# reference: https://stackoverflow.com/a/43148294
+shelter_factor <- shelter[, sapply(shelter, is.factor) & names(shelter) != "animal_id"]
+factor_names <- names(shelter_factor)
+factor_vals <- c()
+for (colname in factor_names) {
+  levels <- levels(shelter_factor[, colname]) %>% paste(collapse=", ")
+  factor_vals <- factor_vals %>% append(levels)
+}
+
+tibble("Feature"=factor_names, "Levels"=factor_vals) %>%
+  kable(format = output_format,  booktabs = TRUE, linesep = "", caption="Summary of Categorical Features") %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+```
+
+\newpage
+
+## Appendix B: Coefficients for Model 1
+
+```{r}
+model1 %>%
+  tidy() %>%
+  kable(format = output_format,  booktabs = TRUE, linesep = "", caption="Coefficients for Model 1", longtable = TRUE) %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position", "repeat_header"))
+```
+
+\newpage
+
+## Appendix C: Coefficients for Model 2
+
+```{r}
+model2 %>%
+  tidy() %>%
+  kable(format = output_format,  booktabs = TRUE, linesep = "", caption="Coefficients for Model 2", longtable = TRUE) %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position", "repeat_header"))
+```
