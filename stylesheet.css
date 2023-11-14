@@ -12,6 +12,17 @@ a.external::after {
   text-align: center;
 }
 
+h1 {
+  margin: 5px;
+}
+
+h2 {
+  font-style: italic;
+  font-weight: normal;
+  font-size: 1.5em;
+  margin: 0;
+}
+
 h3 {
   margin-top: 1.5em;
 }
@@ -32,6 +43,7 @@ h3 {
 .tab-list ol {
   border-bottom: 2px solid #888;
   padding-left: 0;
+  font-size: 1.1em;
 }
 
 /* based on https://www.digitalocean.com/community/tutorials/react-tabs-component (joshtronic and christinagorton, CC BY-NC-SA 4.0 license) */
@@ -45,12 +57,12 @@ h3 {
 
 /* based on https://www.digitalocean.com/community/tutorials/react-tabs-component (joshtronic and christinagorton, CC BY-NC-SA 4.0 license) */
 .tab-list li.active {
-  background-color: #ccc;
+  background-color: #ddd;
   border: solid #888;
   border-width: 2px 2px 0 2px;
 }
 
 .tab-list li.inactive:hover, li.inactive:focus {
-  background-color: #ddd;
-  border-top: 2px solid #ddd;
+  background-color: #eee;
+  border-top: 2px solid #eee;
 }
