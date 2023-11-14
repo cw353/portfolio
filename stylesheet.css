@@ -11,3 +11,46 @@ a.external::after {
 .center {
   text-align: center;
 }
+
+h3 {
+  margin-top: 1.5em;
+}
+
+.project-details {
+  margin-left: 1.5em;
+}
+
+.project-category.visible {
+  display: block;
+}
+
+.project-category.hidden {
+  display: none;
+}
+
+/* based on https://www.digitalocean.com/community/tutorials/react-tabs-component (joshtronic and christinagorton, CC BY-NC-SA 4.0 license) */
+.tab-list ol {
+  border-bottom: 2px solid #888;
+  padding-left: 0;
+}
+
+/* based on https://www.digitalocean.com/community/tutorials/react-tabs-component (joshtronic and christinagorton, CC BY-NC-SA 4.0 license) */
+.tab-list li {
+  display: inline-block;
+  list-style: none;
+  margin-bottom: -2px;
+  padding: 0.5rem 0.75rem;
+  font-size: 1.05em;
+}
+
+/* based on https://www.digitalocean.com/community/tutorials/react-tabs-component (joshtronic and christinagorton, CC BY-NC-SA 4.0 license) */
+.tab-list li.active {
+  background-color: #ccc;
+  border: solid #888;
+  border-width: 2px 2px 0 2px;
+}
+
+.tab-list li.inactive:hover, li.inactive:focus {
+  background-color: #ddd;
+  border-top: 2px solid #ddd;
+}
