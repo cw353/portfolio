@@ -55,6 +55,7 @@ h3 {
   font-size: 1.05em;
   max-width: 20vw;
   text-align: center;
+  vertical-align: center;
 }
 
 /* based on https://www.digitalocean.com/community/tutorials/react-tabs-component (joshtronic and christinagorton, CC BY-NC-SA 4.0 license) */

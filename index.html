@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="utf-8" />
-  <title>Claire Wagner - CS Portfolio</title>
+  <title>Claire Wagner - Portfolio</title>
   <meta name="author" content="Claire Wagner">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -14,19 +14,19 @@
 <body>
 
   <div>
-    <h1 class="center">Computer Science Portfolio</h1>
+    <h1 class="center">Portfolio</h1>
     <h2 class="center">Claire Wagner</h2>
   </div>
 
   <div class="tab-list">
     <ol>
-      <li id="research-button" class="active" tabindex="1">Research Projects</li>
-      <li id="class-button" class="inactive" tabindex="2">Class Projects</li>
-      <li id="personal-button" class="inactive" tabindex="3">Personal Projects</li>
+      <li id="cs-research-button" class="active" tabindex="1">Computer Science<br>Work &amp; Research</li>
+      <li id="cs-class-button" class="inactive" tabindex="2">Computer Science<br>Class Projects</li>
+      <li id="engl-button" class="inactive" tabindex="3">Writing &amp;<br>Literary Criticism</li>
     </ol>
   </div>
-  <div id="research-tab" class="project-category visible">
-    <p class="descr">This section contains various projects related to my work as a research assistant.</p>
+  <div id="cs-research-tab" class="project-category visible">
+    <p class="descr">This section contains various projects related to my computer science work and research.</p>
     <div class="project">
       <h3>Technical Editor &amp; Contributing Author for Interactive Mathematics Textbook (Summer 2023 &ndash; Present)</h3>
       <div class="project-details">
@@ -98,8 +98,8 @@
     </div>
   </div>
 
-  <div id="class-tab" class="project-category hidden">
-    <p class="descr">This section contains various projects related to my undergraduate coursework.</p>
+  <div id="cs-class-tab" class="project-category hidden">
+    <p class="descr">This section contains various projects related to my undergraduate computer science coursework.</p>
     <div class="project">
       <h3>Prosodical Analysis of Shakespearean Sonnets (Spring 2024)</h3>
       <div class="project-details">
@@ -213,37 +213,8 @@
     </div>
   </div>
 
-  <div id="personal-tab" class="project-category hidden">
-    <p class="descr">This section contains various projects related to my extracurriculars and personal interests.</p>
-    <div class="project">
-      <h3>Graph Theory Project (Fall 2023)</h3>
-      <div class="project-details">
-        <p class="descr">More information forthcoming.</p>
-      </div>
-    </div>
-    <div class="project">
-      <h3>Ennyn Durin (Fall 2023)</h3>
-      <div class="project-details">
-        <p class="descr">Simple page for CSS experimentation, inspired by J.R.R. Tolkien's "The Lord of the Rings."</p>
-        <ul>
-          <li><a class="external" href="https://cw353.github.io/ennyn-durin/">Webpage</a></li>
-          <li><a class="external" href="https://github.com/cw353/ennyn-durin">Repository containing source code</a></li>
-          <li>Primary languages, libraries, &amp; tools: JavaScript, HTML, CSS</li>
-        </ul>
-      </div>
-    </div>
-    <div class="project">
-      <h3>Crossing Costume Contest (Fall 2022 &ndash; Fall 2023)</h3>
-      <div class="project-details">
-        <p class="descr">More information forthcoming.</p>
-      </div>
-    </div>
-    <div class="project">
-      <h3>Leaflet ZoomNavBar (Summer 2023)</h3>
-      <div class="project-details">
-        <p class="descr">More information forthcoming.</p>
-      </div>
-    </div>
+  <div id="engl-tab" class="project-category hidden">
+    <p class="descr">This section contains various projects related to my undergraduate English coursework.</p>
   </div>
 
   <script>
@@ -271,14 +242,14 @@
     }
 
     const tab_items = [
-      document.getElementById("research-button"),
-      document.getElementById("class-button"),
-      document.getElementById("personal-button"),
+      document.getElementById("cs-research-button"),
+      document.getElementById("cs-class-button"),
+      document.getElementById("engl-button"),
     ];
     const tab_contents = [
-      document.getElementById("research-tab"),
-      document.getElementById("class-tab"),
-      document.getElementById("personal-tab"),
+      document.getElementById("cs-research-tab"),
+      document.getElementById("cs-class-tab"),
+      document.getElementById("engl-tab"),
     ];
     for (let i = 0; i < tab_items.length; i++) {
       tab_items[i].addEventListener("click", (e) => tab(tab_items, tab_contents, i));
