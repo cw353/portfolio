@@ -1,3 +1,7 @@
+html {
+  background-color: #fff;
+}
+
 a.external::after {
   /* Source: Wikimedia Commons, https://commons.wikimedia.org/wiki/File:Link-external-small-ltr-progressive.svg (CC BY 4.0) */
   content: url(https://upload.wikimedia.org/wikipedia/commons/9/96/Link-external-small-ltr-progressive.svg);
@@ -41,7 +45,7 @@ h3 {
 
 /* based on https://www.digitalocean.com/community/tutorials/react-tabs-component (joshtronic and christinagorton, CC BY-NC-SA 4.0 license) */
 .tab-list ol {
-  border-bottom: 2px solid #888;
+  border-bottom: 2px solid #a3a3a3;
   padding-left: 0;
   font-size: 1.1em;
 }
@@ -50,19 +54,22 @@ h3 {
 .tab-list li {
   display: inline-block;
   list-style: none;
+  border-radius: 0.3em 0.3em 0 0;
   margin-bottom: -2px;
   padding: 0.5rem 0.75rem;
   font-size: 1.05em;
   max-width: 20vw;
   text-align: center;
   vertical-align: center;
+  cursor: pointer;
 }
 
 /* based on https://www.digitalocean.com/community/tutorials/react-tabs-component (joshtronic and christinagorton, CC BY-NC-SA 4.0 license) */
 .tab-list li.active {
-  background-color: #ddd;
-  border: solid #888;
-  border-width: 2px 2px 0 2px;
+  background-color: #fff;
+  border-style: solid;
+  border-color: purple #a3a3a3;
+  border-width: 3px 2px 0 2px;
 }
 
 .tab-list li.inactive:hover, li.inactive:focus {
