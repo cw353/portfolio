@@ -68,7 +68,7 @@ h3 {
   background-color: #fff;
   border-style: solid;
   border-color: purple #a3a3a3;
-  border-width: 3px 2px 0 2px;
+  border-width: 4px 2px 0px 2px;
 }
 
 .tab-list li.inactive:hover, li.inactive:focus {
